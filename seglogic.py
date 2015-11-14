@@ -9,6 +9,11 @@ import os
 import time
 from lal import gpstime
 
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils as ligolw_utils
+
 import subprocess as sp
 
 from ConfigParser import SafeConfigParser
@@ -17,10 +22,11 @@ from optparse import OptionParser
 #=================================================
 
 def flag2filename( flag, start, dur, output_dir="." ):
-    return "%s/%s.xml.gz"%(flag.replace(":","_"), start, dur)
+    return "%s/%s.xml.gz"%(output_dir, flag.replace(":","_"), start, dur)
 
 def segDBcmd( url, flag, start, end, outfilename ):
-    return "segdb_query blah blah blah"
+    ### ligolw_segment_query_dqsegdb -t https://segments.ligo.org -q -a H1:DMT-ANALYSIS_READY:1 -s 1130950800 -e 1131559200
+    return "ligolw_segdb_query_dqsegdb -t %s -q -a %s -s %.3f -e %.3f -o %s"%(url, flag, start, end, outfilename)
 
 #=================================================
 
@@ -102,24 +108,51 @@ for flag in config.get( 'general', 'flags' ).split():
     else:
         end = int(end)
 
-    outfilename = flag2filename( flag, start, end-start, output_dir)
+    dur = end-start
+
+    outfilename = flag2filename( flag, start, dur, output_dir)
     cmd = segDBcmd( segdb_url, flag, start, end, outfilename )
     if opts.verbose:
         print "\t\t%s"%cmd
     sp.Popen( segDBcmd( segdb_url, flag, start, end, flag2filename( flag, start, end-start, output_dir) ) ).wait()
 
     if not opts.skip_gracedb_upload:
+        tags = config.get(flag, 'tags').split()
         message = "SegDb query for %s within [%d, %d]"%(flag, start, end)
-        gracedb.writeLog( graceid, message=message, filename=outfilename, tags=config.get(flag, tags).split() )
+        if opts.verbose:
+            print "\t\t%s"%message
+        gracedb.writeLog( graceid, message=message, filename=outfilename, tags=tags )
 
-    ### need to process these into some sort of summary statement?
-    ### what logic to use?
+        ### process segments
+        xmldoc = ligolw_utils.load_filename(outfilename, contenthandler=lsctables.use_in(ligolw.LIGOLWContentHandler))
 
-### upload to GraceDB
+        sdef = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+        ssum = table.get_table(xmldoc, lsctables.SegmentSummaryTable.tableName)
+        seg = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 
+        ### get segdef_id
+        segdef_id = next(a.segment_def_id for a in sdef if a.name==flag.split(":")[1])
 
+        ### define the fraction of the time this flag is defined
+        ### get list of defined times
+        defd = 0.0
+        for a in ssum:
+            if a.segment_def_id==sedef_id:
+                defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns        
 
+        message = "%s defined : %.3f/%d=%.3f%s"%(flag, defd, dur, defd/dur, "%")
+        if opts.verbose:
+            print "\t\t%s"%message
+        gracedb.writeLog( graceid, message, tags=tags )
 
-
-
+        ### define the fraction of the time this flag is active?
+        # get list of  segments
+        actv = 0.0
+        for a in seg:
+            if a.segment_def_id==segdef_id:
+                actv += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
+        message = "%s active : %.3f/%d=$%.3f%s"%(flag, actv, dur, actv/dur, "%")
+        if opts.verbose:
+            print "\t\t%s"%message
+        gracedb.writeLog( graceid, message, tags=tags )
 
