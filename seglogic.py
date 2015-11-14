@@ -95,11 +95,6 @@ if opts.verbose:
 for flag in config.get( 'general', 'flags' ).split():
     if opts.verbose:
         print "\t%s"%flag
-    wait = gpstime.gps_time_now() - gpstime - config.get_float(flag, 'wait')
-    if wait > 0:
-        if opts.verbose:
-            print "\t\twaiting %.3f sec"%(wait)
-        time.sleep( wait )
 
     start = int(gpstime-config.get_float(flag, 'pad_left'))
     end = gpstime+config.get_float(flag, 'pad_right')
@@ -107,8 +102,13 @@ for flag in config.get( 'general', 'flags' ).split():
         end = int(end) + 1
     else:
         end = int(end)
-
     dur = end-start
+
+    wait = gpstime.gps_time_now() - end - config.get_float(flag, 'wait') ### wait until we're past the end time
+    if wait > 0:
+        if opts.verbose:
+            print "\t\twaiting %.3f sec"%(wait)
+        time.sleep( wait )
 
     outfilename = flag2filename( flag, start, dur, output_dir)
     cmd = segDBcmd( segdb_url, flag, start, end, outfilename )
