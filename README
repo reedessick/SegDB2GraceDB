@@ -1,0 +1,4 @@
+this script was written to provide an automatically triggered interface between SegDB and GraceDB. In this way, information about segments and data quality flags can be loaded into GraceDB without human intervention.
+
+Some assembly required. In particular, lvalert-seglogic.ini, lvalert-init_seglogic and lvalert-run_seglogic may need tweaking based on your set-up.
+

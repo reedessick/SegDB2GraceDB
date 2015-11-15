@@ -1,3 +1,4 @@
+#!/usr/bin/python
 usage = "segLogic.py [--options] config.ini"
 description = "look for segments around a GraceDB event and upload them to GraceDB"
 author = "Reed Essick (reed.essick@ligo.org), Peter Shawhan (pshawhan@umd.edu)"
@@ -7,12 +8,14 @@ import sys
 import os
 
 import time
-from lal import gpstime
+from lal import gpstime as lal_gpstime
 
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils as ligolw_utils
+
+from ligo.gracedb.rest import GraceDb
 
 import subprocess as sp
 
@@ -22,11 +25,11 @@ from optparse import OptionParser
 #=================================================
 
 def flag2filename( flag, start, dur, output_dir="." ):
-    return "%s/%s.xml.gz"%(output_dir, flag.replace(":","_"), start, dur)
+    return "%s/%s-%d-%d.xml.gz"%(output_dir, flag.replace(":","_"), start, dur)
 
 def segDBcmd( url, flag, start, end, outfilename ):
     ### ligolw_segment_query_dqsegdb -t https://segments.ligo.org -q -a H1:DMT-ANALYSIS_READY:1 -s 1130950800 -e 1131559200
-    return "ligolw_segdb_query_dqsegdb -t %s -q -a %s -s %.3f -e %.3f -o %s"%(url, flag, start, end, outfilename)
+    return "ligolw_segment_query_dqsegdb -t %s -q -a %s -s %d -e %d -o %s"%(url, flag, start, end, outfilename)
 
 #=================================================
 
@@ -79,9 +82,9 @@ if config.has_option('general', 'gracedb_url'):
 else:
     gracedb = GraceDb()
 event = gracedb.event( opts.graceid ).json()
-gpstime = event['gpstime']
+gpstime = float(event['gpstime'])
 if opts.verbose:
-    print "processing %s -> %.6f"%(graceid, gpstime)
+    print "processing %s -> %.6f"%(opts.graceid, gpstime)
 
 ### find which segDB we're using
 if config.has_option('general', 'segdb-url'):
@@ -96,15 +99,15 @@ for flag in config.get( 'general', 'flags' ).split():
     if opts.verbose:
         print "\t%s"%flag
 
-    start = int(gpstime-config.get_float(flag, 'pad_left'))
-    end = gpstime+config.get_float(flag, 'pad_right')
+    start = int(gpstime-config.getfloat(flag, 'look_left'))
+    end = gpstime+config.getfloat(flag, 'look_right')
     if end%1:
         end = int(end) + 1
     else:
         end = int(end)
     dur = end-start
 
-    wait = end + config.get_float(flag, 'wait') - gpstime.gps_time_now() ### wait until we're past the end time
+    wait = end + config.getfloat(flag, 'wait') - lal_gpstime.gps_time_now() ### wait until we're past the end time
     if wait > 0:
         if opts.verbose:
             print "\t\twaiting %.3f sec"%(wait)
@@ -121,29 +124,28 @@ for flag in config.get( 'general', 'flags' ).split():
         message = "SegDb query for %s within [%d, %d]"%(flag, start, end)
         if opts.verbose:
             print "\t\t%s"%message
-        gracedb.writeLog( graceid, message=message, filename=outfilename, tags=tags )
+        gracedb.writeLog( opts.graceid, message=message, filename=outfilename, tagname=tags )
 
         ### process segments
         xmldoc = ligolw_utils.load_filename(outfilename, contenthandler=lsctables.use_in(ligolw.LIGOLWContentHandler))
 
         sdef = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
-        ssum = table.get_table(xmldoc, lsctables.SegmentSummaryTable.tableName)
+        ssum = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
         seg = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 
         ### get segdef_id
-        segdef_id = next(a.segment_def_id for a in sdef if a.name==flag.split(":")[1])
+#        segdef_id = next(a.segment_def_id for a in sdef if a.name==flag.split(":")[1])
+        segdef_id = next(a.segment_def_id for a in sdef if a.name=='RESULT')
+
+        message = "%s"%flag
 
         ### define the fraction of the time this flag is defined
         ### get list of defined times
         defd = 0.0
         for a in ssum:
-            if a.segment_def_id==sedef_id:
+            if a.segment_def_id==segdef_id:
                 defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns        
-
-        message = "%s defined : %.3f/%d=%.3f%s"%(flag, defd, dur, defd/dur, "%")
-        if opts.verbose:
-            print "\t\t%s"%message
-        gracedb.writeLog( graceid, message, tags=tags )
+        message += " defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
 
         ### define the fraction of the time this flag is active?
         # get list of  segments
@@ -151,8 +153,9 @@ for flag in config.get( 'general', 'flags' ).split():
         for a in seg:
             if a.segment_def_id==segdef_id:
                 actv += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
-        message = "%s active : %.3f/%d=$%.3f%s"%(flag, actv, dur, actv/dur, "%")
+        message += ", active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
+
         if opts.verbose:
             print "\t\t%s"%message
-        gracedb.writeLog( graceid, message, tags=tags )
+        gracedb.writeLog( opts.graceid, message, tagname=tags )
 
