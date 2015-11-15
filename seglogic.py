@@ -1,6 +1,6 @@
 usage = "segLogic.py [--options] config.ini"
 description = "look for segments around a GraceDB event and upload them to GraceDB"
-author = "Reed Essick (reed.essick@ligo.org"
+author = "Reed Essick (reed.essick@ligo.org), Peter Shawhan (pshawhan@umd.edu)"
 
 
 import sys
@@ -104,7 +104,7 @@ for flag in config.get( 'general', 'flags' ).split():
         end = int(end)
     dur = end-start
 
-    wait = gpstime.gps_time_now() - end - config.get_float(flag, 'wait') ### wait until we're past the end time
+    wait = end + config.get_float(flag, 'wait') - gpstime.gps_time_now() ### wait until we're past the end time
     if wait > 0:
         if opts.verbose:
             print "\t\twaiting %.3f sec"%(wait)
@@ -114,7 +114,7 @@ for flag in config.get( 'general', 'flags' ).split():
     cmd = segDBcmd( segdb_url, flag, start, end, outfilename )
     if opts.verbose:
         print "\t\t%s"%cmd
-    sp.Popen( segDBcmd( segdb_url, flag, start, end, flag2filename( flag, start, end-start, output_dir) ) ).wait()
+    sp.Popen( cmd.split() ).wait()
 
     if not opts.skip_gracedb_upload:
         tags = config.get(flag, 'tags').split()
