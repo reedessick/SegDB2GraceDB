@@ -3,7 +3,7 @@ usage = "segLogic.py [--options] config.ini"
 description = "look for segments around a GraceDB event and upload them to GraceDB"
 author = "Reed Essick (reed.essick@ligo.org), Peter Shawhan (pshawhan@umd.edu)"
 
-
+import json
 import sys
 import os
 
