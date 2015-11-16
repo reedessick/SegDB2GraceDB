@@ -1,0 +1,2 @@
+#!/bin/bash
+/home/reed.essick/SegDB2GraceDB/seglogic.py -v /home/reed.essick/SegDB2GraceDB/seglogic.ini >> /home/reed.essick/SegDB2GraceDB/working/seglogic.out 

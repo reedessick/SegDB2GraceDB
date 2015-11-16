@@ -1,0 +1,2 @@
+#!/bin/bash
+lvalert_listen -a gdb_processor -b skrite#batz -s lvalert.cgca.uwm.edu -r SegDB2GraceDB -c /home/reed.essick/SegDB2GraceDB/lvalert-seglogic.ini --dont-wait >> /home/reed.essick/SegDB2GreaceDb/working/lvalert_seglogic.out
