@@ -30,7 +30,7 @@ def flag2filename( flag, start, dur, output_dir="." ):
 def segDBcmd( url, flag, start, end, outfilename, dmt=False ):
     ### ligolw_segment_query_dqsegdb -t https://segments.ligo.org -q -a H1:DMT-ANALYSIS_READY:1 -s 1130950800 -e 1131559200
     if dmt:
-        return "ligolw_segment_query_dqsegdb --dmt-files -q -a %s -s %d -e %d -o %s"%(url, flag, start, end, outfilename)
+        return "ligolw_segment_query_dqsegdb --dmt-files -q -a %s -s %d -e %d -o %s"%(flag, start, end, outfilename)
     else:
         return "ligolw_segment_query_dqsegdb -t %s -q -a %s -s %d -e %d -o %s"%(url, flag, start, end, outfilename)
 
