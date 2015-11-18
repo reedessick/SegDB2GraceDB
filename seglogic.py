@@ -27,9 +27,12 @@ from optparse import OptionParser
 def flag2filename( flag, start, dur, output_dir="." ):
     return "%s/%s-%d-%d.xml.gz"%(output_dir, flag.replace(":","_"), start, dur)
 
-def segDBcmd( url, flag, start, end, outfilename ):
+def segDBcmd( url, flag, start, end, outfilename, dmt=False ):
     ### ligolw_segment_query_dqsegdb -t https://segments.ligo.org -q -a H1:DMT-ANALYSIS_READY:1 -s 1130950800 -e 1131559200
-    return "ligolw_segment_query_dqsegdb -t %s -q -a %s -s %d -e %d -o %s"%(url, flag, start, end, outfilename)
+    if dmt:
+        return "ligolw_segment_query_dqsegdb --dmt-files -q -a %s -s %d -e %d -o %s"%(url, flag, start, end, outfilename)
+    else:
+        return "ligolw_segment_query_dqsegdb -t %s -q -a %s -s %d -e %d -o %s"%(url, flag, start, end, outfilename)
 
 #=================================================
 
@@ -107,6 +110,11 @@ for flag in config.get( 'general', 'flags' ).split():
         end = int(end)
     dur = end-start
 
+    ### set environment for this query
+    dmt = config.has_option(flag, 'dmt')
+    if dmt:
+        os.environ['ONLINEDQ'] = config.get(flag, 'dmt')
+
     wait = end + config.getfloat(flag, 'wait') - lal_gpstime.gps_time_now() ### wait until we're past the end time
     if wait > 0:
         if opts.verbose:
@@ -114,7 +122,7 @@ for flag in config.get( 'general', 'flags' ).split():
         time.sleep( wait )
 
     outfilename = flag2filename( flag, start, dur, output_dir)
-    cmd = segDBcmd( segdb_url, flag, start, end, outfilename )
+    cmd = segDBcmd( segdb_url, flag, start, end, outfilename, dmt=dmt )
     if opts.verbose:
         print "\t\t%s"%cmd
     sp.Popen( cmd.split() ).wait()
