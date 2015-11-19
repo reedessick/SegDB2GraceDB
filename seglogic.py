@@ -98,7 +98,9 @@ if opts.verbose:
     print "searching for segments in : %s"%segdb_url
 
 ### iterate through flags, uploading each to GraceDB in turn
-for flag in config.get( 'general', 'flags' ).split():
+flags = config.get( 'general', 'flags' ).split()
+flags.sort( key=lambda l: config.getfloat(l,'wait')+config.getfloat(l,'look_right') ) ### sort by how soon we can launch query
+for flag in flags:
     if opts.verbose:
         print "\t%s"%flag
 
