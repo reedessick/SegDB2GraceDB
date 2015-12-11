@@ -25,7 +25,9 @@ from optparse import OptionParser
 #=================================================
 
 def flag2filename( flag, start, dur, output_dir="." ):
-    return "%s/%s-%d-%d.xml.gz"%(output_dir, flag.replace(":","_"), start, dur)
+    flag = flag.split(":")
+    flag = "%s-%s"%(flag[0], "_".join(f.replace("-","_") for f in flag[1:]))
+    return "%s/%s-%d-%d.xml.gz"%(output_dir, flag, start, dur)
 
 def segDBcmd( url, flag, start, end, outfilename, dmt=False ):
     ### ligolw_segment_query_dqsegdb -t https://segments.ligo.org -q -a H1:DMT-ANALYSIS_READY:1 -s 1130950800 -e 1131559200

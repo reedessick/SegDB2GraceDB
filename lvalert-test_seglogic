@@ -1,0 +1,2 @@
+#!/bin/bash
+/home/gracedb.processor/users/ressick/SegDB2GraceDB/seglogic.py -v /home/gracedb.processor/users/ressick/SegDB2GraceDB/seglogic.ini -n
