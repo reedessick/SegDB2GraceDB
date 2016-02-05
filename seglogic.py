@@ -129,7 +129,7 @@ for flag in flags:
     cmd = segDBcmd( segdb_url, flag, start, end, outfilename, dmt=dmt )
     if opts.verbose:
         print "\t\t%s"%cmd
-    sp.Popen( cmd.split() ).wait()
+    output = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE ).communicate()
 
     if not opts.skip_gracedb_upload:
         tags = config.get(flag, 'tags').split()
