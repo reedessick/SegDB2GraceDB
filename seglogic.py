@@ -7,6 +7,8 @@ import json
 import sys
 import os
 
+from collections import defaultdict
+
 import time
 from lal import gpstime as lal_gpstime
 
@@ -220,59 +222,66 @@ for vetoDefiner in vetoDefiners:
     xmldoc = ligolw_utils.load_filename(path, contenthandler=lsctables.use_in(ligolow.LIGOLWContentHandler))
     vetoDef = table.get_table(xmldoc, lsctables.VetoDefTable.name)
 
-    flags = [(row.category, row.ifo, row.flag, row.version, row.start_pad, row.end_pad) for row in vetoDef]
-    flags.sort(key=lambda l: l[2])
-    flags.sort(key=lambda l: l[0])
+    flags = defaultdict( list )
+    for row in vetoDef:
+        flags[row.category].append( (row.ifo, row.flag, row.version, row.start_pad, row.end_pad) )
 
-    for category, ifo, flag, version, start_pad, end_pad in flags:
-
-        if (start_pad!=0) or (end_pad!=0):
-            print "WARNING: do not know how to deal with non-zero pad values! Ignoring these..."
-
-        flag = "%s:%s:%s"%(ifo, flag, version)
-        if opts.verbose:
-            print "\t\t%s"%flag
-
-        outfilename = flag2filename( flag, start, dur, output_dir)
-        cmd = segDBcmd( segdb_url, flag, start, end, outfilename, dmt=dmt )
-        if opts.verbose:
-            print "\t\t%s"%cmd
-        output = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE ).communicate()
-
+    for category in sorted(flags.keys()):
         if not opts.skip_gracedb_upload:
-            message = "SegDb query for %s within [%d, %d]"%(flag, start, end)
+            message="CAT %d"%category
+
+        these_flags = flags[keys]
+        these_flags.sort(key=lambda l: l[1])
+
+        for ifo, flag, version, start_pad, end_pad in these_flags:
+
+            if (start_pad!=0) or (end_pad!=0):
+                print "WARNING: do not know how to deal with non-zero pad values! Ignoring these..."
+
+            flag = "%s:%s:%s"%(ifo, flag, version)
             if opts.verbose:
-                print "\t\t%s"%message
-            gracedb.writeLog( opts.graceid, message=message, filename=outfilename, tagname=queryTags )
+                print "\t\t%s"%flag
 
-            ### process segments
-            xmldoc = ligolw_utils.load_filename(outfilename, contenthandler=lsctables.use_in(ligolw.LIGOLWContentHandler))
+            outfilename = flag2filename( "CAT%d:%s"(category, flag), start, dur, output_dir)
+            cmd = segDBcmd( segdb_url, flag, start, end, outfilename, dmt=dmt )
+            if opts.verbose:
+                print "\t\t%s"%cmd
+            output = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE ).communicate()
 
-            sdef = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
-            ssum = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
-            seg = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+            if not opts.skip_gracedb_upload:
+                message = "SegDb query for %s within [%d, %d]"%(flag, start, end)
+                if opts.verbose:
+                    print "\t\t%s"%message
+                gracedb.writeLog( opts.graceid, message=message, filename=outfilename, tagname=queryTags )
 
-            ### get segdef_id 
-#            segdef_id = next(a.segment_def_id for a in sdef if a.name==flag.split(":")[1])
-            segdef_id = next(a.segment_def_id for a in sdef if a.name=='RESULT')
+                ### process segments
+                xmldoc = ligolw_utils.load_filename(outfilename, contenthandler=lsctables.use_in(ligolw.LIGOLWContentHandler))
 
-            message += "</br>&nbsp %s"%flag
+                sdef = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+                ssum = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
+                seg = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 
-            ### define the fraction of the time this flag is defined
-            ### get list of defined times
-            defd = 0.0
-            for a in ssum:
-                if a.segment_def_id==segdef_id:
-                    defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
-            message += "</br>&nbsp &nbsp  defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+                ### get segdef_id 
+#                segdef_id = next(a.segment_def_id for a in sdef if a.name==flag.split(":")[1])
+                segdef_id = next(a.segment_def_id for a in sdef if a.name=='RESULT')
+    
+                message += "</br>&nbsp &nbsp %s"%flag
 
-            ### define the fraction of the time this flag is active?
-            # get list of  segments
-            actv = 0.0
-            for a in seg:
-                if a.segment_def_id==segdef_id:
-                    actv += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
-            message += "</br>&nbsp &nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
+                ### define the fraction of the time this flag is defined
+                ### get list of defined times
+                defd = 0.0
+                for a in ssum:
+                    if a.segment_def_id==segdef_id:
+                        defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
+                message += "</br>&nbsp &nbsp &nbsp defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+
+                ### define the fraction of the time this flag is active?
+                # get list of  segments
+                actv = 0.0
+                for a in seg:
+                    if a.segment_def_id==segdef_id:
+                        actv += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
+                message += "</br>&nbsp &nbsp &nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
 
     if not opts.skip_gracedb_upload:
         if opts.verbose:
