@@ -133,7 +133,19 @@ for flag in flags:
     cmd = segDBcmd( segdb_url, flag, start, end, outfilename, dmt=dmt )
     if opts.verbose:
         print "\t\t%s"%cmd
-    output = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE ).communicate()
+    proc = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE )
+    output = proc.communicate()
+    if proc.returncode: ### something went wrong with the query!
+        if opts.verbose:
+            print "\tWARNING: an error occured while querying for this flag!\n%s"%output[1]
+        if not opts.skip_gracedb_upload:
+            message = "%s</br>&nbsp &nbsp <b>WARNING</b>: an error occured while querying for this flag!"%flag
+            if config.has_option(flag, 'tagQueries'):
+                queryTags = config.get(flag, 'tags').split()
+            else:
+                queryTags = []
+            gracedb.writeLog( opts.graceid, message=message, tagname=queryTags )
+        continue ### skip the rest, it doesn't make sense to process a non-existant file
 
     if not opts.skip_gracedb_upload:
         tags = config.get(flag, 'tags').split()
@@ -165,15 +177,22 @@ for flag in flags:
         for a in ssum:
             if a.segment_def_id==segdef_id:
                 defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns        
-        message += "</br>&nbsp defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+        message += "</br>&nbsp &nbsp defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
 
         ### define the fraction of the time this flag is active?
         # get list of  segments
         actv = 0.0
+        flagged = 0
         for a in seg:
             if a.segment_def_id==segdef_id:
                 actv += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
-        message += "</br>&nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
+                if (a.end_time+1e-9*a.end_time_ns >= gpstime) and (gpstime >= a.start_time+1e-9*a.start_time_ns):
+                    flagged += 1
+        message += "</br>&nbsp &nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
+        if flagged:
+            message += "</br>&nbsp &nbsp <b>candidate is within these segments!</b>"
+        else:
+            message += "</br>&nbsp &nbsp <b>candidate is not within these segments!</b>"
 
         if opts.verbose:
             print "\t\t%s"%message
@@ -219,40 +238,51 @@ for vetoDefiner in vetoDefiners:
     path = config.get(vetoDefiner, 'path')
     if opts.verbose:
         print "\treading vetoDefiner from : %s"%path
-    xmldoc = ligolw_utils.load_filename(path, contenthandler=lsctables.use_in(ligolow.LIGOLWContentHandler))
-    vetoDef = table.get_table(xmldoc, lsctables.VetoDefTable.name)
+    xmldoc = ligolw_utils.load_filename(path, contenthandler=lsctables.use_in(ligolw.LIGOLWContentHandler))
+    vetoDef = table.get_table(xmldoc, lsctables.VetoDefTable.tableName)
 
     flags = defaultdict( list )
     for row in vetoDef:
-        flags[row.category].append( (row.ifo, row.flag, row.version, row.start_pad, row.end_pad) )
+        flags[row.category].append( (row.ifo, row.name, row.version, row.start_pad, row.end_pad) )
 
+    message="%s"%vetoDefiner
     for category in sorted(flags.keys()):
         if not opts.skip_gracedb_upload:
-            message="CAT %d"%category
+            message+="</br>CAT %d"%category
 
-        these_flags = flags[keys]
+        these_flags = flags[category]
         these_flags.sort(key=lambda l: l[1])
 
-        for ifo, flag, version, start_pad, end_pad in these_flags:
+        for ifo, name, version, start_pad, end_pad in these_flags:
 
-            if (start_pad!=0) or (end_pad!=0):
-                print "WARNING: do not know how to deal with non-zero pad values! Ignoring these..."
-
-            flag = "%s:%s:%s"%(ifo, flag, version)
+            flag = "%s:%s:%s"%(ifo, name, version)
             if opts.verbose:
                 print "\t\t%s"%flag
 
-            outfilename = flag2filename( "CAT%d:%s"(category, flag), start, dur, output_dir)
+            if (start_pad!=0) or (end_pad!=0):
+                print "\t\t\tWARNING: do not know how to deal with non-zero pad values! Ignoring these..."
+
+            outfilename = flag2filename( "CAT%d:%s"%(category, flag), start, dur, output_dir)
             cmd = segDBcmd( segdb_url, flag, start, end, outfilename, dmt=dmt )
             if opts.verbose:
-                print "\t\t%s"%cmd
+                print "\t\t\t%s"%cmd
             output = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE ).communicate()
+            proc = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE )
+            output = proc.communicate()
+            if proc.returncode: ### something went wrong with the query!
+                if opts.verbose:
+                    print "\t\t\tWARNING: an error occured while querying for this flag!\n%s"%output[1]
+                if not opts.skip_gracedb_upload:
+                    querymessage += "%s</br>&nbsp &nbsp &nbsp &nbsp &nbsp &nbsp<b>WARNING</b>: an error occured while querying for this flag!"%flag
+                    gracedb.writeLog( opts.graceid, message=querymessage, tagname=queryTags )
+                    message += "</br>&nbsp &nbsp %s</br>&nbsp &nbsp &nbsp WARNING: an error occured while querying for this flag!"%flag
+                continue ### skip the rest, it doesn't make sense to process a non-existant file
 
             if not opts.skip_gracedb_upload:
-                message = "SegDb query for %s within [%d, %d]"%(flag, start, end)
+                querymessage = "SegDb query for %s within [%d, %d]"%(flag, start, end)
                 if opts.verbose:
-                    print "\t\t%s"%message
-                gracedb.writeLog( opts.graceid, message=message, filename=outfilename, tagname=queryTags )
+                    print "\t\t\t%s"%querymessage
+                gracedb.writeLog( opts.graceid, message=querymessage, filename=outfilename, tagname=queryTags )
 
                 ### process segments
                 xmldoc = ligolw_utils.load_filename(outfilename, contenthandler=lsctables.use_in(ligolw.LIGOLWContentHandler))
@@ -273,15 +303,22 @@ for vetoDefiner in vetoDefiners:
                 for a in ssum:
                     if a.segment_def_id==segdef_id:
                         defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
-                message += "</br>&nbsp &nbsp &nbsp defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+                message += "</br>&nbsp &nbsp &nbsp &nbsp defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
 
                 ### define the fraction of the time this flag is active?
                 # get list of  segments
                 actv = 0.0
+                flagged = 0
                 for a in seg:
                     if a.segment_def_id==segdef_id:
                         actv += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
-                message += "</br>&nbsp &nbsp &nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
+                        if (a.end_time+1e-9*a.end_time_ns >= gpstime) and (gpstime >= a.start_time+1e-9*a.start_time_ns):
+                            flagged += 1
+                message += "</br>&nbsp &nbsp &nbsp &nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
+                if flagged:
+                    message += "</br>&nbsp &nbsp &nbsp &nbsp <b>candidate is within these segments!</b>"
+                else:
+                    message += "</br>&nbsp &nbsp &nbsp &nbsp <b>candidate is not within these segments!</b>"
 
     if not opts.skip_gracedb_upload:
         if opts.verbose:
