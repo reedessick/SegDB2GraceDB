@@ -99,6 +99,8 @@ else:
 if opts.verbose:
     print "searching for segments in : %s"%segdb_url
 
+#---------------------------------------------------------------------------------------------------
+
 ### iterate through flags, uploading each to GraceDB in turn
 flags = config.get( 'general', 'flags' ).split()
 flags.sort( key=lambda l: config.getfloat(l,'wait')+config.getfloat(l,'look_right') ) ### sort by how soon we can launch query
@@ -133,10 +135,14 @@ for flag in flags:
 
     if not opts.skip_gracedb_upload:
         tags = config.get(flag, 'tags').split()
+        if config.has_option(flag, 'tagQueries'):
+            queryTags = tags
+        else:
+            queryTags = []
         message = "SegDb query for %s within [%d, %d]"%(flag, start, end)
         if opts.verbose:
             print "\t\t%s"%message
-        gracedb.writeLog( opts.graceid, message=message, filename=outfilename, tagname=tags )
+        gracedb.writeLog( opts.graceid, message=message, filename=outfilename, tagname=queryTags )
 
         ### process segments
         xmldoc = ligolw_utils.load_filename(outfilename, contenthandler=lsctables.use_in(ligolw.LIGOLWContentHandler))
@@ -157,7 +163,7 @@ for flag in flags:
         for a in ssum:
             if a.segment_def_id==segdef_id:
                 defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns        
-        message += " defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+        message += "</br>&nbsp defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
 
         ### define the fraction of the time this flag is active?
         # get list of  segments
@@ -165,9 +171,110 @@ for flag in flags:
         for a in seg:
             if a.segment_def_id==segdef_id:
                 actv += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
-        message += ", active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
+        message += "</br>&nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
 
         if opts.verbose:
             print "\t\t%s"%message
         gracedb.writeLog( opts.graceid, message, tagname=tags )
 
+#---------------------------------------------------------------------------------------------------
+
+### iterate through veto definers
+vetoDefiners = config.get( 'general', 'vetoDefiners' ).split()
+vetoDefiners.sort( key=lambda l: config.getfloat(l,'wait')+config.getfloat(l,'look_right') ) ### sort by how soon we can launch query
+for vetoDefiner in vetoDefiners:
+    if opts.verbose:
+        print "\t%s"%vetoDefiner
+
+    start = int(gpstime-config.getfloat(vetoDefiner, 'look_left'))
+    end = gpstime+config.getfloat(vetoDefiner, 'look_right')
+    if end%1:
+        end = int(end) + 1
+    else:
+        end = int(end)
+    dur = end-start
+
+    ### set environment for this query
+    dmt = config.has_option(vetoDefiner, 'dmt')
+    if dmt:
+        os.environ['ONLINEDQ'] = config.get(vetoDefiner, 'dmt')
+
+    if not opts.skip_gracedb_upload:
+        tags = config.get(vetoDefiner, 'tags').split()
+        if config.has_option(vetoDefiner, 'tagQueries'):
+            queryTags = tags
+        else:
+            querytags = []
+        message = "%s"%(vetoDefiner)
+
+    wait = end + config.getfloat(vetoDefiner, 'wait') - lal_gpstime.gps_time_now() ### wait until we're past the end time
+    if wait > 0:
+        if opts.verbose:
+            print "\t\twaiting %.3f sec"%(wait)
+        time.sleep( wait )
+
+    ### read in the flags from the veto definer file and sort them by category
+    path = config.get(vetoDefiner, 'path')
+    if opts.verbose:
+        print "\treading vetoDefiner from : %s"%path
+    xmldoc = ligolw_utils.load_filename(path, contenthandler=lsctables.use_in(ligolow.LIGOLWContentHandler))
+    vetoDef = table.get_table(xmldoc, lsctables.VetoDefTable.name)
+
+    flags = [(row.category, row.ifo, row.flag, row.version, row.start_pad, row.end_pad) for row in vetoDef]
+    flags.sort(key=lambda l: l[2])
+    flags.sort(key=lambda l: l[0])
+
+    for category, ifo, flag, version, start_pad, end_pad in flags:
+
+        if (start_pad!=0) or (end_pad!=0):
+            print "WARNING: do not know how to deal with non-zero pad values! Ignoring these..."
+
+        flag = "%s:%s:%s"%(ifo, flag, version)
+        if opts.verbose:
+            print "\t\t%s"%flag
+
+        outfilename = flag2filename( flag, start, dur, output_dir)
+        cmd = segDBcmd( segdb_url, flag, start, end, outfilename, dmt=dmt )
+        if opts.verbose:
+            print "\t\t%s"%cmd
+        output = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE ).communicate()
+
+        if not opts.skip_gracedb_upload:
+            message = "SegDb query for %s within [%d, %d]"%(flag, start, end)
+            if opts.verbose:
+                print "\t\t%s"%message
+            gracedb.writeLog( opts.graceid, message=message, filename=outfilename, tagname=queryTags )
+
+            ### process segments
+            xmldoc = ligolw_utils.load_filename(outfilename, contenthandler=lsctables.use_in(ligolw.LIGOLWContentHandler))
+
+            sdef = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+            ssum = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
+            seg = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+
+            ### get segdef_id 
+#            segdef_id = next(a.segment_def_id for a in sdef if a.name==flag.split(":")[1])
+            segdef_id = next(a.segment_def_id for a in sdef if a.name=='RESULT')
+
+            message += "</br>&nbsp %s"%flag
+
+            ### define the fraction of the time this flag is defined
+            ### get list of defined times
+            defd = 0.0
+            for a in ssum:
+                if a.segment_def_id==segdef_id:
+                    defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
+            message += "</br>&nbsp &nbsp  defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+
+            ### define the fraction of the time this flag is active?
+            # get list of  segments
+            actv = 0.0
+            for a in seg:
+                if a.segment_def_id==segdef_id:
+                    actv += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
+            message += "</br>&nbsp &nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
+
+    if not opts.skip_gracedb_upload:
+        if opts.verbose:
+            print "\t\t%s"%message
+        gracedb.writeLog( opts.graceid, message, tagname=tags )
