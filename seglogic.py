@@ -6,6 +6,7 @@ author = "Reed Essick (reed.essick@ligo.org), Peter Shawhan (pshawhan@umd.edu)"
 import json
 import sys
 import os
+import glob
 
 from collections import defaultdict
 
@@ -37,6 +38,13 @@ def segDBcmd( url, flag, start, end, outfilename, dmt=False ):
         return "ligolw_segment_query_dqsegdb --dmt-files -q -a %s -s %d -e %d -o %s"%(flag, start, end, outfilename)
     else:
         return "ligolw_segment_query_dqsegdb -t %s -q -a %s -s %d -e %d -o %s"%(url, flag, start, end, outfilename)
+
+def segDBvetoDefcmd( url, vetoDef, start, end, output_dir=".", dmt=False ):
+    ### ligolw_segments_from_cats_dqsegdb
+    if dmt:
+        return "ligolw_segments_from_cats_dqsegdb --dmt-file -v %s -s %d -e %d -i -p -o %s"%(vetoDef, start, end, output_dir)
+    else:
+        return "ligolw_segments_from_cats_dqsegdb -t %s -v %s -s %d -e %d -i -p -o %s"%(url, vetoDef, start, end, output_dir)
 
 #=================================================
 
@@ -220,6 +228,12 @@ for vetoDefiner in vetoDefiners:
     if dmt:
         os.environ['ONLINEDQ'] = config.get(vetoDefiner, 'dmt')
 
+    ### set up output dir
+    this_output_dir = "%s/%s"%(output_dir, vetoDefiner)
+    if not os.path.exists(this_output_dir):
+        os.makedirs(this_output_dir)
+
+    ### set up GraceDB upload info
     if not opts.skip_gracedb_upload:
         tags = config.get(vetoDefiner, 'tags').split()
         if config.has_option(vetoDefiner, 'tagQueries'):
@@ -234,93 +248,124 @@ for vetoDefiner in vetoDefiners:
             print "\t\twaiting %.3f sec"%(wait)
         time.sleep( wait )
 
-    ### read in the flags from the veto definer file and sort them by category
-    path = config.get(vetoDefiner, 'path')
+    ### run segDB query
+    cmd = segDBvetoDefcmd( segdb_url, config.get(vetoDefiner, 'path'), start, end, output_dir=this_output_dir, dmt=dmt )
     if opts.verbose:
-        print "\treading vetoDefiner from : %s"%path
-    xmldoc = ligolw_utils.load_filename(path, contenthandler=lsctables.use_in(ligolw.LIGOLWContentHandler))
-    vetoDef = table.get_table(xmldoc, lsctables.VetoDefTable.tableName)
-
-    flags = defaultdict( list )
-    for row in vetoDef:
-        flags[row.category].append( (row.ifo, row.name, row.version, row.start_pad, row.end_pad) )
-
-    message="%s"%vetoDefiner
-    for category in sorted(flags.keys()):
+        print "\t\t%s"%cmd
+    output = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE ).communicate()
+    proc = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE )
+    output = proc.communicate()
+    if proc.returncode: ### something went wrong with the query!
+        if opts.verbose:
+            print "\t\tWARNING: an error occured while querying for this flag!\n%s"%output[1]
         if not opts.skip_gracedb_upload:
-            message+="</br>CAT %d"%category
-
-        these_flags = flags[category]
-        these_flags.sort(key=lambda l: l[1])
-
-        for ifo, name, version, start_pad, end_pad in these_flags:
-
-            flag = "%s:%s:%s"%(ifo, name, version)
-            if opts.verbose:
-                print "\t\t%s"%flag
-
-            if (start_pad!=0) or (end_pad!=0):
-                print "\t\t\tWARNING: do not know how to deal with non-zero pad values! Ignoring these..."
-
-            outfilename = flag2filename( "CAT%d:%s"%(category, flag), start, dur, output_dir)
-            cmd = segDBcmd( segdb_url, flag, start, end, outfilename, dmt=dmt )
-            if opts.verbose:
-                print "\t\t\t%s"%cmd
-            output = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE ).communicate()
-            proc = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE )
-            output = proc.communicate()
-            if proc.returncode: ### something went wrong with the query!
-                if opts.verbose:
-                    print "\t\t\tWARNING: an error occured while querying for this flag!\n%s"%output[1]
-                if not opts.skip_gracedb_upload:
-                    querymessage += "%s</br>&nbsp &nbsp &nbsp &nbsp &nbsp &nbsp<b>WARNING</b>: an error occured while querying for this flag!"%flag
-                    gracedb.writeLog( opts.graceid, message=querymessage, tagname=queryTags )
-                    message += "</br>&nbsp &nbsp %s</br>&nbsp &nbsp &nbsp WARNING: an error occured while querying for this flag!"%flag
-                continue ### skip the rest, it doesn't make sense to process a non-existant file
-
-            if not opts.skip_gracedb_upload:
-                querymessage = "SegDb query for %s within [%d, %d]"%(flag, start, end)
-                if opts.verbose:
-                    print "\t\t\t%s"%querymessage
-                gracedb.writeLog( opts.graceid, message=querymessage, filename=outfilename, tagname=queryTags )
-
-                ### process segments
-                xmldoc = ligolw_utils.load_filename(outfilename, contenthandler=lsctables.use_in(ligolw.LIGOLWContentHandler))
-
-                sdef = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
-                ssum = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
-                seg = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
-
-                ### get segdef_id 
-#                segdef_id = next(a.segment_def_id for a in sdef if a.name==flag.split(":")[1])
-                segdef_id = next(a.segment_def_id for a in sdef if a.name=='RESULT')
-    
-                message += "</br>&nbsp &nbsp %s"%flag
-
-                ### define the fraction of the time this flag is defined
-                ### get list of defined times
-                defd = 0.0
-                for a in ssum:
-                    if a.segment_def_id==segdef_id:
-                        defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
-                message += "</br>&nbsp &nbsp &nbsp &nbsp defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
-
-                ### define the fraction of the time this flag is active?
-                # get list of  segments
-                actv = 0.0
-                flagged = 0
-                for a in seg:
-                    if a.segment_def_id==segdef_id:
-                        actv += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
-                        if (a.end_time+1e-9*a.end_time_ns >= gpstime) and (gpstime >= a.start_time+1e-9*a.start_time_ns):
-                            flagged += 1
-                message += "</br>&nbsp &nbsp &nbsp &nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
-                if flagged:
-                    message += "</br>&nbsp &nbsp &nbsp &nbsp <b>candidate is within these segments!</b>"
-                else:
-                    message += "</br>&nbsp &nbsp &nbsp &nbsp <b>candidate is not within these segments!</b>"
+            querymessage += "%s</br>&nbsp &nbsp &nbsp &nbsp &nbsp &nbsp<b>WARNING</b>: an error occured while querying for this flag!"%flag
+            gracedb.writeLog( opts.graceid, message=querymessage, tagname=queryTags )
+            message += "</br>&nbsp &nbsp %s</br>&nbsp &nbsp &nbsp WARNING: an error occured while querying for this flag!"%flag
+        continue ### skip the rest, it doesn't make sense to process a non-existant file
 
     if not opts.skip_gracedb_upload:
+
+        ### collect results of the query and format them into a reasonable data structure
+        ifos = defaultdict( list )
+        for xml in glob.glob("%s/*-VETOTIME_CAT*-%d-%d.xml"%(this_output_dir, start, dur)):
+            ifos[os.path.basename(xml).split('-')[0]].append( xml )
+        for ifo, val in ifos.items():
+            cats = defaultdict( list )
+            for xml in val:
+                cats[os.path.basename(xml).split("-")[1].split("_")[-1]].append( xml )
+            ifos[ifo] = cats
+
+        ### iterate through IFOs and through Categories, extracting individual flags and summary statements
+        header = "%s"%vetoDefiner
+        body = ""
+
+        for ifo in sorted(ifos.keys()):
+            if opts.verbose:
+                print "\t\tworking on IFO : %s"%ifo
+            for category in sorted(ifos[ifo].keys()):
+                if opts.verbose:
+                    print "\t\t\tworking on category : %s"%category
+                for xml in ifos[ifo][category]:
+                    querymessage = "SegDb query for %s -> %s:%s within [%d, %d]"%(vetoDefiner, ifo, category, start, end)
+                    if opts.verbose:
+                        print "\t\t\t\t%s"%querymessage
+                    gracedb.writeLog( opts.graceid, message=querymessage, filename=xml, tagname=queryTags )
+
+                    if opts.verbose:
+                        print "\t\t\t\treading : %s"%xml
+                    xmldoc = ligolw_utils.load_filename(xml, contenthandler=lsctables.use_in(ligolw.LIGOLWContentHandler))
+                    
+                    sdef = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+                    ssum = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
+                    seg = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+
+                    vetoDef = table.get_table(xmldoc, lsctables.VetoDefTable.tableName)
+
+                    ### extract info about all flags together (as a category)
+                    vetoCATname = 'VETO_%s'%category
+                    segdef_id = next(a.segment_def_id for a in sdef if a.name==vetoCATname)
+
+                    header += "</br>&nbsp &nbsp %s:%s"%(ifo, category)
+
+                    ### define the fraction of the time this flag is defined
+                    ### get list of defined times
+                    defd = 0.0
+                    for a in ssum:
+                        if a.segment_def_id==segdef_id:
+                            defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
+                    header += "</br>&nbsp &nbsp &nbsp &nbsp defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+
+                    ### define the fraction of the time this flag is active?
+                    # get list of  segments
+                    actv = 0.0
+                    flagged = 0
+                    for a in seg:
+                        if a.segment_def_id==segdef_id:
+                            actv += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
+                            if (a.end_time+1e-9*a.end_time_ns >= gpstime) and (gpstime >= a.start_time+1e-9*a.start_time_ns):
+                                flagged += 1
+                    header += "</br>&nbsp &nbsp &nbsp &nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
+                    if flagged:
+                        header += "</br>&nbsp &nbsp &nbsp &nbsp <b>candidate FAILS %s:%s data quality checks</b>"%(ifo, category)
+                    else:
+                        header += "</br>&nbsp &nbsp &nbsp &nbsp <b>candidate PASSES %s:%s data quality checks</b>"%(ifo, category)
+
+                    ### extract info about individual flags
+                    flags = {}
+                    for a in sdef: ### map flags to seg_def_id
+                        if a.name!=vetoCATname:
+                            flags["%s:%s:%s"%(a.ifos, a.name, a.version)] = a.segment_def_id
+
+                    for flag in sorted(flags.keys()): ### analyze each flag individually
+                        segdef_id = flags[flag]
+
+                        body += "</br>%s (%s:%s)"%(flag, ifo, category)
+
+                        ### define the fraction of the time this flag is defined
+                        ### get list of defined times
+                        defd = 0.0
+                        for a in ssum:
+                            if a.segment_def_id==segdef_id:
+                                defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
+                        body += "</br>&nbsp &nbsp defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+
+                        ### define the fraction of the time this flag is active?
+                        # get list of  segments
+                        actv = 0.0
+                        flagged = 0
+                        for a in seg:
+                            if a.segment_def_id==segdef_id:
+                                actv += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
+                                if (a.end_time+1e-9*a.end_time_ns >= gpstime) and (gpstime >= a.start_time+1e-9*a.start_time_ns):
+                                    flagged += 1
+                        body += "</br>&nbsp &nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
+                        if flagged:
+                            body += "</br>&nbsp &nbsp <b>candidate IS within these segments</b>"
+                        else:
+                            body += "</br>&nbsp &nbsp <b>candidate IS NOT within these segments</b>"
+
+        message = header+"</br>"+body
         if opts.verbose:
             print "\t\t%s"%message
         gracedb.writeLog( opts.graceid, message, tagname=tags )
