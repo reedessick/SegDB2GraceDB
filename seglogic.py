@@ -46,6 +46,15 @@ def segDBvetoDefcmd( url, vetoDef, start, end, output_dir=".", dmt=False ):
     else:
         return "ligolw_segments_from_cats_dqsegdb -t %s -v %s -s %d -e %d -i -p -o %s"%(url, vetoDef, start, end, output_dir)
 
+def allActivefilename( start, dur, output_dir="."):
+    return "%s/allActive-%d-%d.json"%(output_dir, start, dur)
+
+def segDBallActivecmd( url, gps, start_pad, end_pad, outfilename, activeOnly=False ):
+    cmd = "ligolw_dq_query_dqsegdb -t %s -s %d -e %d -o %s %d"%(url, start_pad, end_pad, outfilename, gps)
+    if activeOnly:
+        cmd += " -a"
+    return cmd
+
 #=================================================
 
 parser = OptionParser(usage=usage, description=description)
@@ -369,3 +378,64 @@ for vetoDefiner in vetoDefiners:
         if opts.verbose:
             print "\t\t%s"%message
         gracedb.writeLog( opts.graceid, message, tagname=tags )
+
+#---------------------------------------------------------------------------------------------------
+
+### report all active flags
+if config.has_option("general", "allActive"):
+    look_right = config.getint("allActive", "look_right")
+    look_left = config.getint("allActive", "look_left")
+
+    start = int(gpstime-config.getfloat(vetoDefiner, 'look_left'))
+    end = gpstime+config.getfloat(vetoDefiner, 'look_right')
+    if end%1:
+        end = int(end) + 1
+    else:
+        end = int(end)
+    dur = end-start
+
+    gpstimeINT=int(gpstime) ### cast to int becuase the remaining query works only with ints
+
+    wait = end + config.getfloat("allActive", 'wait') - lal_gpstime.gps_time_now() ### wait until we're past the end time
+    if wait > 0:
+        if opts.verbose:
+            print "\t\twaiting %.3f sec"%(wait)
+        time.sleep( wait )
+
+    ### run segDB query
+    outfilename = allActivefilename(start, dur, output_dir=output_dir)
+    cmd = segDBallActivecmd( segdb_url, gpstimeINT, start-gpstimeINT, end-gpstimeINT, outfilename, activeOnly=False )
+    if opts.verbose:
+        print "\t\t%s"%cmd
+    output = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE ).communicate()
+    proc = sp.Popen( cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE )
+    output = proc.communicate()
+    if proc.returncode: ### something went wrong with the query!
+        if opts.verbose:
+            print "\t\tWARNING: an error occured while querying for all active flags!\n%s"%output[1]
+        if not opts.skip_gracedb_upload:
+            querymessage += "<b>WARNING</b>: an error occured while querying for all active flags!"
+            gracedb.writeLog( opts.graceid, message=querymessage, tagname=queryTags )
+ 
+    elif not opts.skip_gracedb_upload:
+        tags = config.get("allActive","tags").split()
+        if config.has_option("allActive", "tagQueries"):
+            queryTags = tags
+        else:
+            queryTags = []
+
+        message = "SegDb query for all active flags within [%d, %d]"%(start, end)
+        if opts.verbose:
+            print "\t\t%s"%message
+        gracedb.writeLog( opts.graceid, message=message, filename=outfilename, tagname=queryTags )
+
+        ### report a human readable list
+        if config.has_option("allActive", "humanReadable"):
+            file_obj = open(outfilename, "r")
+            d=json.load(file_obj)
+            file_obj.close()
+
+            message = "active flags include:</br>"+", ".join(sorted(d['Active Results'].keys()))
+            if opts.verbose:
+                print "\t\t%s"%message
+            gracedb.writeLog( opts.graceid, message=message, tagname=tags )
