@@ -118,6 +118,15 @@ else:
 if opts.verbose:
     print "searching for segments in : %s"%segdb_url
 
+### report that we started searching
+if not opts.skip_gracedb_upload:
+    message = "began searching for segments in : %s"%(segdb_url)
+    if config.has_option(flag, 'tagQueries'):
+        queryTags = config.get(flag, 'tags').split()
+    else:
+        queryTags = []
+    gracedb.writeLog( opts.graceid, message=message, tagname=queryTags )    
+
 #---------------------------------------------------------------------------------------------------
 
 ### iterate through flags, uploading each to GraceDB in turn
@@ -439,3 +448,14 @@ if config.has_option("general", "allActive"):
             if opts.verbose:
                 print "\t\t%s"%message
             gracedb.writeLog( opts.graceid, message=message, tagname=tags )
+
+#---------------------------------------------------------------------------------------------------
+
+### report that we're done
+if not opts.skip_gracedb_upload:
+    message = "finished searching for segments in : %s"%(segdb_url)
+    if config.has_option(flag, 'tagQueries'):
+        queryTags = config.get(flag, 'tags').split()
+    else:
+        queryTags = []
+    gracedb.writeLog( opts.graceid, message=message, tagname=queryTags )
