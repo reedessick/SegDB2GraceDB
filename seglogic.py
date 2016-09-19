@@ -55,6 +55,12 @@ def segDBallActivecmd( url, gps, start_pad, end_pad, outfilename, activeOnly=Fal
         cmd += " -a"
     return cmd
 
+def writeLog( gdb, graceid, message, filename=None, tagname=[] ):
+    '''
+    delegates to gdb.writeLog but incorporates a common tagname for all uploads
+    '''
+    gdb.writeLog( graceid, message=message, filename=filename, tagname=['segDb2grcDb']+tagname )
+
 #=================================================
 
 parser = OptionParser(usage=usage, description=description)
@@ -125,7 +131,7 @@ if not opts.skip_gracedb_upload:
         queryTags = config.get(flag, 'tags').split()
     else:
         queryTags = []
-    gracedb.writeLog( opts.graceid, message=message, tagname=queryTags )    
+    writeLog( gracedb, opts.graceid, message=message, tagname=queryTags )    
 
 #---------------------------------------------------------------------------------------------------
 
@@ -170,7 +176,7 @@ for flag in flags:
                 queryTags = config.get(flag, 'tags').split()
             else:
                 queryTags = []
-            gracedb.writeLog( opts.graceid, message=message, tagname=queryTags )
+            writeLog( gracedb, opts.graceid, message=message, tagname=queryTags )
         continue ### skip the rest, it doesn't make sense to process a non-existant file
 
     if not opts.skip_gracedb_upload:
@@ -182,7 +188,7 @@ for flag in flags:
         message = "SegDb query for %s within [%d, %d]"%(flag, start, end)
         if opts.verbose:
             print "\t\t%s"%message
-        gracedb.writeLog( opts.graceid, message=message, filename=outfilename, tagname=queryTags )
+        writeLog( gracedb, opts.graceid, message=message, filename=outfilename, tagname=queryTags )
 
         ### process segments
         xmldoc = ligolw_utils.load_filename(outfilename, contenthandler=lsctables.use_in(ligolw.LIGOLWContentHandler))
@@ -222,7 +228,7 @@ for flag in flags:
 
         if opts.verbose:
             print "\t\t%s"%message
-        gracedb.writeLog( opts.graceid, message, tagname=tags )
+        writeLog( gracedb, opts.graceid, message, tagname=tags )
 
 #---------------------------------------------------------------------------------------------------
 
@@ -278,7 +284,7 @@ for vetoDefiner in vetoDefiners:
             print "\t\tWARNING: an error occured while querying for this flag!\n%s"%output[1]
         if not opts.skip_gracedb_upload:
             querymessage += "%s</br>&nbsp &nbsp &nbsp &nbsp &nbsp &nbsp<b>WARNING</b>: an error occured while querying for this flag!"%flag
-            gracedb.writeLog( opts.graceid, message=querymessage, tagname=queryTags )
+            writeLog( gracedb, opts.graceid, message=querymessage, tagname=queryTags )
             message += "</br>&nbsp &nbsp %s</br>&nbsp &nbsp &nbsp WARNING: an error occured while querying for this flag!"%flag
         continue ### skip the rest, it doesn't make sense to process a non-existant file
 
@@ -308,7 +314,7 @@ for vetoDefiner in vetoDefiners:
                     querymessage = "SegDb query for %s -> %s:%s within [%d, %d]"%(vetoDefiner, ifo, category, start, end)
                     if opts.verbose:
                         print "\t\t\t\t%s"%querymessage
-                    gracedb.writeLog( opts.graceid, message=querymessage, filename=xml, tagname=queryTags )
+                    writeLog( gracedb, opts.graceid, message=querymessage, filename=xml, tagname=queryTags )
 
                     if opts.verbose:
                         print "\t\t\t\treading : %s"%xml
@@ -386,7 +392,7 @@ for vetoDefiner in vetoDefiners:
         message = header+"</br>"+body
         if opts.verbose:
             print "\t\t%s"%message
-        gracedb.writeLog( opts.graceid, message, tagname=tags )
+        writeLog( gracedb, opts.graceid, message, tagname=tags )
 
 #---------------------------------------------------------------------------------------------------
 
@@ -424,7 +430,7 @@ if config.has_option("general", "allActive"):
             print "\t\tWARNING: an error occured while querying for all active flags!\n%s"%output[1]
         if not opts.skip_gracedb_upload:
             querymessage += "<b>WARNING</b>: an error occured while querying for all active flags!"
-            gracedb.writeLog( opts.graceid, message=querymessage, tagname=queryTags )
+            writeLog( gracedb, opts.graceid, message=querymessage, tagname=queryTags )
  
     elif not opts.skip_gracedb_upload:
         tags = config.get("allActive","tags").split()
@@ -436,7 +442,7 @@ if config.has_option("general", "allActive"):
         message = "SegDb query for all active flags within [%d, %d]"%(start, end)
         if opts.verbose:
             print "\t\t%s"%message
-        gracedb.writeLog( opts.graceid, message=message, filename=outfilename, tagname=queryTags )
+        writeLog( gracedb, opts.graceid, message=message, filename=outfilename, tagname=queryTags )
 
         ### report a human readable list
         if config.has_option("allActive", "humanReadable"):
@@ -447,7 +453,7 @@ if config.has_option("general", "allActive"):
             message = "active flags include:</br>"+", ".join(sorted(d['Active Results'].keys()))
             if opts.verbose:
                 print "\t\t%s"%message
-            gracedb.writeLog( opts.graceid, message=message, tagname=tags )
+            writeLog( gracedb, opts.graceid, message=message, tagname=tags )
 
 #---------------------------------------------------------------------------------------------------
 
@@ -458,4 +464,4 @@ if not opts.skip_gracedb_upload:
         queryTags = config.get(flag, 'tags').split()
     else:
         queryTags = []
-    gracedb.writeLog( opts.graceid, message=message, tagname=queryTags )
+    writeLog( gracedb, opts.graceid, message=message, tagname=queryTags )
