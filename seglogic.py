@@ -198,7 +198,7 @@ for flag in flags:
             print "\tWARNING: an error occured while querying for this flag!\n%s"%output[1]
 
         if not opts.skip_gracedb_upload:
-            message = "%s<br>&nbsp;&nbsp;<b>WARNING</b>: an error occured while querying for this flag!"%flag
+            message = "%s<br>&nbsp;&nbsp;<strong>WARNING</strong>: an error occured while querying for this flag!"%flag
             writeLog( gracedb, opts.graceid, message=message, tagname=qtags )
 
         continue ### skip the rest, it doesn't make sense to process a non-existant file
@@ -253,23 +253,23 @@ for flag in flags:
         message += "<br>&nbsp;&nbsp;active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
         if actv:
             if actvLabels:
-                message += " <b>Will label as : %s.</b>"%(", ".join(actvLabels))
+                message += " <strong>Will label as : %s.</strong>"%(", ".join(actvLabels))
                 labels += actvLabels
         else:
             if inactvLabels:
-                message += " <b>Will label as : %s.</b>"%(", ".join(inactvLabels))
+                message += " <strong>Will label as : %s.</strong>"%(", ".join(inactvLabels))
                 labels += inactvLabels
 
         if flagged:
-            message += "<br>&nbsp;&nbsp;<b>candidate is within these segments!</b>"
+            message += "<br>&nbsp;&nbsp;<strong>candidate is within these segments!</strong>"
             if flagLabels:
-                message += " <b>Will label as : %s.</b>"%(", ".join(flagLabels))
+                message += " <strong>Will label as : %s.</strong>"%(", ".join(flagLabels))
                 labels += flagLabels
             
         else:
-            message += "<br>&nbsp;&nbsp;<b>candidate is not within these segments!</b>"
+            message += "<br>&nbsp;&nbsp;<strong>candidate is not within these segments!</strong>"
             if unflagLabels:
-                message += " <b>Will label as : %s.</b>"%(", ".join(unflagLabels))
+                message += " <strong>Will label as : %s.</strong>"%(", ".join(unflagLabels))
                 labels += unflagLabels
 
         ### post message
@@ -336,7 +336,7 @@ for vetoDefiner in vetoDefiners:
             print "        WARNING: an error occured while querying for this vetoDefiner!\n%s"%output[1]
 
         if not opts.skip_gracedb_upload:
-            querymessage = "%s<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp<b>WARNING</b>: an error occured while querying for this vetoDefiner!"%flag
+            querymessage = "%s<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp<strong>WARNING</strong>: an error occured while querying for this vetoDefiner!"%flag
             writeLog( gracedb, opts.graceid, message=querymessage, tagname=qtags )
 
         continue ### skip the rest, it doesn't make sense to process a non-existant file
@@ -415,17 +415,17 @@ for vetoDefiner in vetoDefiners:
                     header += "<br>&nbsp;&nbsp;&nbsp;&nbsp;active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
                     if actv:
                         if actvLabels:
-                            header += " <b>Will label as : %s</b>"%(", ".join(actvLabels))
+                            header += " <strong>Will label as : %s</strong>"%(", ".join(actvLabels))
                             labels += actvLabels
 
                     if flagged:
-                        header += "<br>&nbsp;&nbsp;&nbsp;&nbsp;<b>candidate FAILS %s:%s data quality checks</b>"%(ifo, category)
+                        header += "<br>&nbsp;&nbsp;&nbsp;&nbsp;<strong>candidate FAILS %s:%s data quality checks</strong>"%(ifo, category)
                         if flagLabels:
-                            header += " <b>Will label as : %s.</b>"%(", ".join(flagLabels))
+                            header += " <strong>Will label as : %s.</strong>"%(", ".join(flagLabels))
                             labels += flagLabels
 
                     else:
-                        header += "<br>&nbsp;&nbsp;&nbsp;&nbsp;<b>candidate PASSES %s:%s data quality checks</b>"%(ifo, category)
+                        header += "<br>&nbsp;&nbsp;&nbsp;&nbsp;<strong>candidate PASSES %s:%s data quality checks</strong>"%(ifo, category)
 
                     ### extract info about individual flags
                     flags = {}
@@ -459,10 +459,10 @@ for vetoDefiner in vetoDefiners:
                         body += "<br>&nbsp;&nbsp;active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
 
                         if flagged:
-                            body += "<br>&nbsp;&nbsp;<b>candidate IS within these segments</b>"
+                            body += "<br>&nbsp;&nbsp;<strong>candidate IS within these segments</strong>"
 
                         else:
-                            body += "<br>&nbsp;&nbsp;<b>candidate IS NOT within these segments</b>"
+                            body += "<br>&nbsp;&nbsp;<strong>candidate IS NOT within these segments</strong>"
 
         ### print the message
         message = header+"<br>"+body
@@ -516,7 +516,7 @@ if config.getboolean("general", "allActive"):
             print "        WARNING: an error occured while querying for all active flags!\n%s"%output[1]
 
         if not opts.skip_gracedb_upload:
-            querymessage = "<b>WARNING</b>: an error occured while querying for all active flags!"
+            querymessage = "<strong>WARNING</strong>: an error occured while querying for all active flags!"
             writeLog( gracedb, opts.graceid, message=querymessage, tagname=qtags )
 
     ### upload to GraceDb
