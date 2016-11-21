@@ -198,7 +198,7 @@ for flag in flags:
             print "\tWARNING: an error occured while querying for this flag!\n%s"%output[1]
 
         if not opts.skip_gracedb_upload:
-            message = "%s</br>&nbsp &nbsp <b>WARNING</b>: an error occured while querying for this flag!"%flag
+            message = "%s<br>&nbsp;&nbsp;<b>WARNING</b>: an error occured while querying for this flag!"%flag
             writeLog( gracedb, opts.graceid, message=message, tagname=qtags )
 
         continue ### skip the rest, it doesn't make sense to process a non-existant file
@@ -237,7 +237,7 @@ for flag in flags:
         for a in ssum:
             if a.segment_def_id==segdef_id:
                 defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns        
-        message += "</br>&nbsp &nbsp defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+        message += "<br>&nbsp;&nbsp;defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
 
         ### define the fraction of the time this flag is active?
         # get list of  segments
@@ -250,7 +250,7 @@ for flag in flags:
                 if (a.end_time+1e-9*a.end_time_ns >= gpstime) and (gpstime >= a.start_time+1e-9*a.start_time_ns):
                     flagged += 1
 
-        message += "</br>&nbsp &nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
+        message += "<br>&nbsp;&nbsp;active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
         if actv:
             if actvLabels:
                 message += " <b>Will label as : %s.</b>"%(", ".join(actvLabels))
@@ -261,13 +261,13 @@ for flag in flags:
                 labels += inactvLabels
 
         if flagged:
-            message += "</br>&nbsp &nbsp <b>candidate is within these segments!</b>"
+            message += "<br>&nbsp;&nbsp;<b>candidate is within these segments!</b>"
             if flagLabels:
                 message += " <b>Will label as : %s.</b>"%(", ".join(flagLabels))
                 labels += flagLabels
             
         else:
-            message += "</br>&nbsp &nbsp <b>candidate is not within these segments!</b>"
+            message += "<br>&nbsp;&nbsp;<b>candidate is not within these segments!</b>"
             if unflagLabels:
                 message += " <b>Will label as : %s.</b>"%(", ".join(unflagLabels))
                 labels += unflagLabels
@@ -336,7 +336,7 @@ for vetoDefiner in vetoDefiners:
             print "        WARNING: an error occured while querying for this vetoDefiner!\n%s"%output[1]
 
         if not opts.skip_gracedb_upload:
-            querymessage = "%s</br>&nbsp &nbsp &nbsp &nbsp &nbsp &nbsp<b>WARNING</b>: an error occured while querying for this vetoDefiner!"%flag
+            querymessage = "%s<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp<b>WARNING</b>: an error occured while querying for this vetoDefiner!"%flag
             writeLog( gracedb, opts.graceid, message=querymessage, tagname=qtags )
 
         continue ### skip the rest, it doesn't make sense to process a non-existant file
@@ -392,7 +392,7 @@ for vetoDefiner in vetoDefiners:
                     vetoCATname = 'VETO_%s'%category
                     segdef_id = next(a.segment_def_id for a in sdef if a.name==vetoCATname)
 
-                    header += "</br>&nbsp &nbsp %s:%s"%(ifo, category)
+                    header += "<br>&nbsp;&nbsp;%s:%s"%(ifo, category)
 
                     ### define the fraction of the time this flag is defined
                     ### get list of defined times
@@ -400,7 +400,7 @@ for vetoDefiner in vetoDefiners:
                     for a in ssum:
                         if a.segment_def_id==segdef_id:
                             defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
-                    header += "</br>&nbsp &nbsp &nbsp &nbsp defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+                    header += "<br>&nbsp;&nbsp;&nbsp;&nbsp;defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
 
                     ### define the fraction of the time this flag is active?
                     # get list of  segments
@@ -412,20 +412,20 @@ for vetoDefiner in vetoDefiners:
                             if (a.end_time+1e-9*a.end_time_ns >= gpstime) and (gpstime >= a.start_time+1e-9*a.start_time_ns):
                                 flagged += 1
 
-                    header += "</br>&nbsp &nbsp &nbsp &nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
+                    header += "<br>&nbsp;&nbsp;&nbsp;&nbsp;active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
                     if actv:
                         if actvLabels:
                             header += " <b>Will label as : %s</b>"%(", ".join(actvLabels))
                             labels += actvLabels
 
                     if flagged:
-                        header += "</br>&nbsp &nbsp &nbsp &nbsp <b>candidate FAILS %s:%s data quality checks</b>"%(ifo, category)
+                        header += "<br>&nbsp;&nbsp;&nbsp;&nbsp;<b>candidate FAILS %s:%s data quality checks</b>"%(ifo, category)
                         if flagLabels:
                             header += " <b>Will label as : %s.</b>"%(", ".join(flagLabels))
                             labels += flagLabels
 
                     else:
-                        header += "</br>&nbsp &nbsp &nbsp &nbsp <b>candidate PASSES %s:%s data quality checks</b>"%(ifo, category)
+                        header += "<br>&nbsp;&nbsp;&nbsp;&nbsp;<b>candidate PASSES %s:%s data quality checks</b>"%(ifo, category)
 
                     ### extract info about individual flags
                     flags = {}
@@ -436,7 +436,7 @@ for vetoDefiner in vetoDefiners:
                     for flag in sorted(flags.keys()): ### analyze each flag individually
                         segdef_id = flags[flag]
 
-                        body += "</br>%s (%s:%s)"%(flag, ifo, category)
+                        body += "<br>%s (%s:%s)"%(flag, ifo, category)
 
                         ### define the fraction of the time this flag is defined
                         ### get list of defined times
@@ -444,7 +444,7 @@ for vetoDefiner in vetoDefiners:
                         for a in ssum:
                             if a.segment_def_id==segdef_id:
                                 defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
-                        body += "</br>&nbsp &nbsp defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+                        body += "<br>&nbsp;&nbsp;defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
 
                         ### define the fraction of the time this flag is active?
                         # get list of  segments
@@ -456,16 +456,16 @@ for vetoDefiner in vetoDefiners:
                                 if (a.end_time+1e-9*a.end_time_ns >= gpstime) and (gpstime >= a.start_time+1e-9*a.start_time_ns):
                                     flagged += 1
 
-                        body += "</br>&nbsp &nbsp active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
+                        body += "<br>&nbsp;&nbsp;active : %.3f/%d=%.3f%s"%(actv, dur, actv/dur * 100, "%")
 
                         if flagged:
-                            body += "</br>&nbsp &nbsp <b>candidate IS within these segments</b>"
+                            body += "<br>&nbsp;&nbsp;<b>candidate IS within these segments</b>"
 
                         else:
-                            body += "</br>&nbsp &nbsp <b>candidate IS NOT within these segments</b>"
+                            body += "<br>&nbsp;&nbsp;<b>candidate IS NOT within these segments</b>"
 
         ### print the message
-        message = header+"</br>"+body
+        message = header+"<br>"+body
         if opts.verbose:
             print "        %s"%message
         writeLog( gracedb, opts.graceid, message, tagname=tags )
@@ -533,7 +533,7 @@ if config.getboolean("general", "allActive"):
             d=json.load(file_obj)
             file_obj.close()
 
-            message = "active flags include:</br>"+", ".join(sorted(d['Active Results'].keys()))
+            message = "active flags include:<br>"+", ".join(sorted(d['Active Results'].keys()))
             if opts.verbose:
                 print "        %s"%message
             writeLog( gracedb, opts.graceid, message=message, tagname=tags )
