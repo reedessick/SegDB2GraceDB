@@ -28,10 +28,10 @@ parser.add_argument('--resource', default='SegDB2GraceDB', required=False,
     help='resource name for lvalert_listen. DEFAULT=SegDB2GraceDB' )
 
 parser.add_argument('--username', default='gdb_processor', required=False,
-    help='username for lvalert_listenMP. DEFAULT=gdb_processor' )
+    help='username for lvalert_listen. DEFAULT=gdb_processor' )
 
 parser.add_argument('--bin', default='/bin', required=False,
-    help='the path to the lvalert_listenMP executable.' )
+    help='the path to the lvalert_listen executable.' )
 
 parser.add_argument('--out', default='/home/gracedb.processor/working/log/', required=False,
     help='the path to output directory for condor log files.' )
@@ -55,9 +55,9 @@ accounting_group_user = reed.essick
 
 arguments = --username %(username)s --resource %(resource)s --config-file %(config)s
 
-log                 = %(out)s/log/lvalertlistenMP_segDb2grcDb.$(Cluster).log 
-output              = %(out)s/log/lvalertlistenMP_segDb2grcDb.$(Cluster).out
-error               = %(out)s/log/lvalertlistenMP_sedDb2grcDb.$(Cluster).error
+log                 = %(out)s/log/lvalertlisten_segDb2grcDb.$(Cluster).log 
+output              = %(out)s/log/lvalertlisten_segDb2grcDb.$(Cluster).out
+error               = %(out)s/log/lvalertlisten_sedDb2grcDb.$(Cluster).error
 
 queue 1
 """%{
