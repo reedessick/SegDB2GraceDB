@@ -2,4 +2,5 @@
 cd /home/gracedb.processor/users/ressick/SegDB2GraceDB/
 . setup.sh
 
+#seglogic.py -v /home/gracedb.processor/users/ressick/SegDB2GraceDB/etc/seglogic.ini
 seglogic.py -v /home/gracedb.processor/users/ressick/SegDB2GraceDB/etc/seglogic.ini >> /home/gracedb.processor/users/ressick/working/segDb2grcDb/seglogic.out 2>> /home/gracedb.processor/users/ressick/working/segDb2grcDb/seglogic.err
