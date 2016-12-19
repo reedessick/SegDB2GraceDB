@@ -15,6 +15,12 @@ In particular, if it is not given a specific GraceId through the command line op
 The Config file (``etc/seglogic.ini``) dictates which types of queries are performed and the individual parameters for each query. 
 It also determines where output will be written and which Data Bases are used (both GraceDb and SegDb).
 
+### Installation
+
+No formal installation is supported at this time. 
+Instead, the repo provides a ``setup.sh`` script which modifies the user's paths to make the code discoverable. 
+As currently run, the production configuration files both live within ``etc`` in this repository.
+
 -------------------------
 
 ## Types of Queries
