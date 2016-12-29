@@ -59,7 +59,7 @@ executable            = %(bin)s/lvalert_listen
 getenv                = True
 notification          = never
 environment           = DISPLAY=localhost:10.0
-accounting_group      = %(group)
+accounting_group      = %(group)s
 accounting_group_user = %(username)s
 
 arguments = --username %(username)s --resource %(resource)s --config-file %(config)s
