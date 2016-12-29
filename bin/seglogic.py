@@ -237,7 +237,7 @@ for flag in flags:
         for a in ssum:
             if a.segment_def_id==segdef_id:
                 defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns        
-        message += "<br>&nbsp;&nbsp;defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+        message += "<br>&nbsp;&nbsp;known : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
 
         ### define the fraction of the time this flag is active?
         # get list of  segments
@@ -400,7 +400,7 @@ for vetoDefiner in vetoDefiners:
                     for a in ssum:
                         if a.segment_def_id==segdef_id:
                             defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
-                    header += "<br>&nbsp;&nbsp;&nbsp;&nbsp;defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+                    header += "<br>&nbsp;&nbsp;&nbsp;&nbsp;known : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
 
                     ### define the fraction of the time this flag is active?
                     # get list of  segments
@@ -444,7 +444,7 @@ for vetoDefiner in vetoDefiners:
                         for a in ssum:
                             if a.segment_def_id==segdef_id:
                                 defd += a.end_time+1e-9*a.end_time_ns - a.start_time+1e-9*a.start_time_ns
-                        body += "<br>&nbsp;&nbsp;defined : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
+                        body += "<br>&nbsp;&nbsp;known : %.3f/%d=%.3f%s"%(defd, dur, defd/dur * 100, "%")
 
                         ### define the fraction of the time this flag is active?
                         # get list of  segments
