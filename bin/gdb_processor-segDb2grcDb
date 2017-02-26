@@ -65,7 +65,7 @@ environment           = DISPLAY=localhost:10.0
 accounting_group      = %(group)s
 accounting_group_user = %(group_username)s
 
-arguments = --username %(username)s --resource %(resource)s --config-file %(config)s %(dont-wait)s
+arguments = --username %(username)s --resource %(resource)s --config-file %(config)s %(dont_wait)s
 
 log                 = %(out)s/log/lvalertlisten_segDb2grcDb.$(Cluster).log 
 output              = %(out)s/log/lvalertlisten_segDb2grcDb.$(Cluster).out
